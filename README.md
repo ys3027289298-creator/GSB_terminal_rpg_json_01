@@ -121,6 +121,35 @@ or another object containing additional choices:
 ```
 which continues the adventure.
 
+## Config validation and jump safety
+Before a game starts, every node is checked against the schema. The JSON
+format itself is unchanged; invalid configs now fail with a readable message
+(including the node path, e.g. `root -> 'help' -> 'about'`) instead of a
+crash.
+
+Schema rules:
+* Every node must be an object with exactly three fields: `prompt`,
+  `question`, and `answer`.
+* `prompt` and `question` must be strings.
+* `answer` is either a string (an ending) or an object of options.
+* An `answer` object cannot be empty; a node with no options would reprompt
+  forever.
+* Every option key must be a string, and every value must be either a string
+  (ending) or another valid node.
+* Duplicate option keys inside one node are rejected (ordinary JSON parsing
+  would silently keep the last one).
+
+Jump-safety rules:
+* A node cannot jump back to itself or to one of its ancestors (cyclic
+  references fail validation).
+* If every option at the current node is locked by a title the player has not
+  earned, the game stops with a clear "dialogue deadlocked" error instead of
+  looping.
+* As a final backstop, a run is aborted after 10,000 dialogue steps
+  (`MAX_STEPS`) so a misconfigured engine always terminates.
+* Closing the input stream (EOF) ends the game cleanly and still saves
+  progress.
+
 # save.json
 Stores persistent player progress.
 ```json
