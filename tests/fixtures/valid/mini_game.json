@@ -1,0 +1,29 @@
+{
+    "prompt": "Start",
+    "question": "Where to?",
+    "answer": {
+        "1": {
+            "prompt": "Cave",
+            "question": "It is dark.",
+            "answer": "You find a torch.\nAwarded Title: Torchbearer"
+        },
+        "2": {
+            "prompt": "Forest",
+            "question": "A path splits.",
+            "answer": {
+                "1": {
+                    "prompt": "Left",
+                    "question": "A river.",
+                    "answer": "You swim across.\nAwarded Title: Swimmer"
+                },
+                ".map": "The map shows the way home.\nAwarded Title: Cartographer",
+                "*": "You wander in circles.\nAwarded Title: Lost"
+            }
+        },
+        "v1.2": {
+            "prompt": "Version Stone",
+            "question": "An engraved stone.",
+            "answer": "The engraving hums.\nAwarded Title: Archaeologist"
+        }
+    }
+}

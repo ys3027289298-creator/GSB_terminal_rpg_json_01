@@ -1,20 +1,27 @@
 from __future__ import annotations
 from collections import Counter
 from typing import TypedDict, Any
-from dotenv import load_dotenv
 import json
 import os
+import sys
 
-load_dotenv()
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ModuleNotFoundError:
+    pass
 
-if (data := os.getenv("DATA")) is not None:
-    DATA_FILE: str = data
+from .validation import (
+    ConfigError,
+    GameStateError,
+    load_json_strict,
+    validate_game_data,
+    validate_save_data,
+)
 
-if (save := os.getenv("SAVE")) is not None:
-    SAVE_FILE: str = save
-
-if (env := os.getenv("ENV")) is not None:
-    DEBUG: bool = True if env == "DEBUG" else False
+DATA_FILE: str | None = os.getenv("DATA")
+SAVE_FILE: str | None = os.getenv("SAVE")
+DEBUG: bool = os.getenv("ENV") == "DEBUG"
 
 class GameData(TypedDict):
     """
@@ -35,12 +42,18 @@ class SaveData(TypedDict):
     obtained: list[str]
 
 def load_game_data() -> GameData:
-    with open(DATA_FILE, "r") as file:
-        return process_json_data(json.load(file))
+    if DATA_FILE is None:
+        raise ConfigError('Environment variable "DATA" is not set; point it at a game data JSON file.')
+    data = load_json_strict(DATA_FILE)
+    validate_game_data(data)
+    return process_json_data(data)
 
 def load_save_data() -> SaveData:
-    with open(SAVE_FILE, "r") as file:
-        return SaveData(json.load(file))
+    if SAVE_FILE is None:
+        raise ConfigError('Environment variable "SAVE" is not set; point it at a save JSON file.')
+    data = load_json_strict(SAVE_FILE)
+    validate_save_data(data)
+    return SaveData(data)
 
 def save_data_to_file(save_data: SaveData) -> None:
     with open(SAVE_FILE, "w") as file:
@@ -97,13 +110,27 @@ def run_game(game_data: GameData, save_data: SaveData) -> None:
             return
         assert isinstance(game_data["answer"], dict) # Answer Is Guarantee To Be Dict Cuz Otherwise End Game. Assert For Type Checkers
 
+        locked_options = [option for option in game_data["answer"] if is_not_unlocked_route(option, save_data)]
+        if len(locked_options) == len(game_data["answer"]):
+            raise GameStateError(
+                "No available options: every route from this node is locked, so the game cannot continue.\n"
+                f"Node prompt: {game_data['prompt']!r}\n"
+                f"Locked option(s): {', '.join(repr(option) for option in locked_options)}\n"
+                'Unlock the required title(s) or add a reachable option (e.g. a "*" wildcard) to this node.'
+            )
+
         option_str: str = "\n".join([
             f"{option}) {data["prompt"]}" 
             for option, data in game_data["answer"].items() 
             if not is_hidden_option(option, save_data)
         ])
 
-        response: str = input(option_str + "\n")
+        try:
+            response: str = input(option_str + "\n")
+        except EOFError:
+            print("\nInput stream closed. Ending game.")
+            return
+
         if is_not_unlocked_route(response, save_data):
             print("Invalid Input?")
             continue
@@ -112,9 +139,9 @@ def run_game(game_data: GameData, save_data: SaveData) -> None:
             game_data = data
             continue
 
-        secret_options = [key.split(".", 1)[1].strip() for key in game_data["answer"].keys() if "." in key]
+        secret_options = {key[1:].strip(): key for key in game_data["answer"].keys() if key.startswith(".")}
         if response in secret_options:
-            game_data = game_data["answer"][f".{response}"]
+            game_data = game_data["answer"][secret_options[response]]
             continue
 
         if "*" in game_data["answer"].keys():
@@ -122,12 +149,16 @@ def run_game(game_data: GameData, save_data: SaveData) -> None:
             continue
 
         if DEBUG:
-            raise Exception(f"Failed to read input.\nInput: {response}\nGame Data: {game_data}")
+            raise GameStateError(f"Failed to read input.\nInput: {response}\nGame Data: {game_data}")
         print("Invalid Input!")
 
 def main():
-    game_data: GameData = load_game_data()
-    save_data: SaveData = load_save_data()
+    try:
+        game_data: GameData = load_game_data()
+        save_data: SaveData = load_save_data()
+    except ConfigError as exc:
+        print(f"Config Error: {exc}", file=sys.stderr)
+        raise SystemExit(1)
 
     if is_game_complete(save_data):
         print("Game Completed!")
@@ -135,5 +166,8 @@ def main():
 
     try:
         run_game(game_data, save_data)
+    except GameStateError as exc:
+        print(f"Game Error: {exc}", file=sys.stderr)
+        raise SystemExit(1)
     finally:
         save_data_to_file(save_data)

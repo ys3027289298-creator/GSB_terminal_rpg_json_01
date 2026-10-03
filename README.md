@@ -76,6 +76,11 @@ The engine loads two files(examples in the games/ folder):
 ## `data.json`
 Contains the entire game.
 Every node contains three fields:
+
+> Configs are validated at load time against the schema and jump safety rules
+> in [docs/SCHEMA.md](docs/SCHEMA.md). Invalid configs are rejected with a
+> readable error instead of crashing or looping forever.
+
 ```json
 {
     "prompt": "...",

@@ -1,0 +1,11 @@
+{
+    "prompt": "Gate",
+    "question": "The gate only opens for the worthy.",
+    "answer": {
+        "Skeleton Key": {
+            "prompt": "Unlock",
+            "question": "It opens.",
+            "answer": "You walk through.\nAwarded Title: Gatecrasher"
+        }
+    }
+}

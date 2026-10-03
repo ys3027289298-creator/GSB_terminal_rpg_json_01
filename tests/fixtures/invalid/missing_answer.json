@@ -1,0 +1,10 @@
+{
+    "prompt": "Start",
+    "question": "Pick.",
+    "answer": {
+        "1": {
+            "prompt": "Nowhere",
+            "question": "This node forgot its answers."
+        }
+    }
+}
